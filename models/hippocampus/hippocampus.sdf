@@ -1,5 +1,5 @@
-<?xml version='1.0'?>
-<sdf version='1.5'>
+<?xml version="1.0" ?>
+<sdf version="1.5">
   <model name='hippocampus_light'>
     <link name='base_link'>
       <pose frame=''>0 0 0 0 -0 0</pose>
@@ -724,8 +724,8 @@
       <robotNamespace>hippocampus</robotNamespace>
       <imuSubTopic>/imu</imuSubTopic>
       <motorSpeedCommandPubTopic>/gazebo/command/motor_speed</motorSpeedCommandPubTopic>
-      <commandScaling>2.0</commandScaling>
-      <commandOffset>-1.0</commandOffset>
+      <inputScaling>2.0</commandScaling>
+      <inputOffset>-0.5</inputOffset>
     </plugin>
     <plugin name='uuv_plugin' filename='librotors_gazebo_uuv_plugin.so'>
       <robotNamespace>iris</robotNamespace>

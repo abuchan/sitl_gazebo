@@ -1,8 +1,8 @@
 # Gazebo for MAVLink SITL
 
-This is a flight simulator for multirotors, VTOL and fixed wing.
+This is a flight simulator for multirotors, VTOL and fixed wing. It uses the motor model and other pieces from the RotorS simulator, but in contrast to RotorS has no dependency on ROS. This repository is in the process of being re-integrated into RotorS, which then will support ROS and MAVLink as transport options: https://github.com/ethz-asl/rotors_simulator
 
-NOTE: This repository is in the process of being re-integrated into RotorS: https://github.com/ethz-asl/rotors_simulator
+**If you use this simulator in academic work, please cite RotorS as per the README in the above link.**
 
 ## Install Gazebo Simulator
 
@@ -68,21 +68,46 @@ cd Build
 cmake ..
 ```
 
-Autogenerate the sdf file with the command
-```bash
-make sdf
-```
-
 Now build the gazebo plugins by typing:
 
 ```bash
 make
 ```
 
+## Install
+
+If you wish the libraries and models to be usable anywhere on your system without
+specifying th paths, install as shown below.
+
+**Note: If you are using ubuntu, it is best to see the packaging section.**
+
+```bash
+sudo make install
+```
+
+## Testing
+
 Gazebo will now launch when typing 'gazebo' on the shell:
 
 ```bash
-gazebo
+. /usr/share/gazebo/setup.sh
+. /usr/share/mavlink_sitl_gazebo/setup.sh
+gazebo worlds/iris.world
 ```
 
-Please refer to the documentation of the particular flight stack how to run it against this framework.
+Please refer to the documentation of the particular flight stack how to run it against this framework, e.g. [PX4](http://dev.px4.io/simulation-gazebo.html)
+
+## Packaging
+
+### Deb
+
+To create a debian package for ubuntu and install it to your system.
+
+```bash
+cd Build
+cmake ..
+make
+rm *.deb
+cpack -G DEB
+sudo dpkg -i *.deb
+```
