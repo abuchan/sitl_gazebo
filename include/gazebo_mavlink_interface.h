@@ -80,6 +80,11 @@ static const std::string kDefaultOpticalFlowTopic = "/opticalFlow";
 static const std::string kDefaultMavlinkHilSensorPubTopic = "/HilSensor";
 static const std::string kDefaultMavlinkHilGpsPubTopic = "/HilGps";
 
+// Scaling and offset from PWM command [0.0,1.0] to velocity (m/s)
+// These default values are for the IRIS quadrotor speed controllers
+static const double kDefaultCommandScaling = 340.0;
+static const double kDefaultCommandOffset = 500.0;
+
 static bool use_mavlink_udp = true;
 
 class GazeboMavlinkInterface : public ModelPlugin {
@@ -96,7 +101,9 @@ class GazeboMavlinkInterface : public ModelPlugin {
         lidar_sub_topic_(kDefaultLidarTopic),
         mavlink_control_sub_topic_(kDefaultMavlinkControlSubTopic),
         lat_rad(0.0),
-        lon_rad(0.0)
+        lon_rad(0.0),
+        command_scaling_(kDefaultCommandScaling),
+        command_offset_(kDefaultCommandOffset)
         {}
   ~GazeboMavlinkInterface();
 
@@ -167,6 +174,9 @@ class GazeboMavlinkInterface : public ModelPlugin {
   double gps_update_interval_;
   double lat_rad;
   double lon_rad;
+  
+  double command_scaling_;
+  double command_offset_;
 
   math::Vector3 gravity_W_;
   math::Vector3 velocity_prev_W_;

@@ -96,7 +96,7 @@ void GazeboMotorModel::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf) {
   getSdfParam<double>(_sdf, "timeConstantUp", time_constant_up_, time_constant_up_);
   getSdfParam<double>(_sdf, "timeConstantDown", time_constant_down_, time_constant_down_);
   getSdfParam<double>(_sdf, "rotorVelocitySlowdownSim", rotor_velocity_slowdown_sim_, 10);
-
+  getSdfParam<bool>(_sdf, "applyForce", apply_force_, apply_force_);
   /*
   std::cout << "Subscribing to: " << motor_test_sub_topic_ << std::endl;
   motor_sub_ = node_handle_->Subscribe<mav_msgs::msgs::MotorSpeed>(motor_test_sub_topic_, &GazeboMotorModel::testProto, this);
@@ -141,50 +141,56 @@ void GazeboMotorModel::VelocityCallback(CommandMotorSpeedPtr &rot_velocities) {
   if(rot_velocities->motor_speed_size() < motor_number_) {
     std::cout  << "You tried to access index " << motor_number_
       << " of the MotorSpeed message array which is of size " << rot_velocities->motor_speed_size() << "." << std::endl;
-  } else ref_motor_rot_vel_ = std::min(static_cast<double>(rot_velocities->motor_speed(motor_number_)), static_cast<double>(max_rot_velocity_));
+  } else {
+    ref_motor_rot_vel_ = std::min(static_cast<double>(rot_velocities->motor_speed(motor_number_)), static_cast<double>(max_rot_velocity_));
+    //std::cout << "Mot:" << motor_number_ << ":" << ref_motor_rot_vel_ << std::endl;
+  }
 }
 
 void GazeboMotorModel::UpdateForcesAndMoments() {
-  motor_rot_vel_ = joint_->GetVelocity(0);
-  if (motor_rot_vel_ / (2 * M_PI) > 1 / (2 * sampling_time_)) {
-    gzerr << "Aliasing on motor [" << motor_number_ << "] might occur. Consider making smaller simulation time steps or raising the rotor_velocity_slowdown_sim_ param.\n";
+  if (apply_force_) {
+    motor_rot_vel_ = joint_->GetVelocity(0);
+    if (motor_rot_vel_ / (2 * M_PI) > 1 / (2 * sampling_time_)) {
+      gzerr << "Aliasing on motor [" << motor_number_ << "] might occur. Consider making smaller simulation time steps or raising the rotor_velocity_slowdown_sim_ param.\n";
+    }
+    double real_motor_velocity = motor_rot_vel_ * rotor_velocity_slowdown_sim_;
+    double force = real_motor_velocity * real_motor_velocity * motor_constant_;
+
+    // scale down force linearly with forward speed
+    // XXX this has to be modelled better
+    math::Vector3 body_velocity = link_->GetWorldLinearVel();
+    double vel = body_velocity.GetLength();
+    double scalar = 1 - vel / 25.0; // at 50 m/s the rotor will not produce any force anymore
+    scalar = math::clamp(scalar, 0.0, 1.0);
+    // Apply a force to the link.
+    link_->AddRelativeForce(math::Vector3(0, 0, force * scalar));
+
+    // Forces from Philppe Martin's and Erwan Salaün's
+    // 2010 IEEE Conference on Robotics and Automation paper
+    // The True Role of Accelerometer Feedback in Quadrotor Control
+    // - \omega * \lambda_1 * V_A^{\perp}
+    math::Vector3 joint_axis = joint_->GetGlobalAxis(0);
+    //math::Vector3 body_velocity = link_->GetWorldLinearVel();
+    math::Vector3 body_velocity_perpendicular = body_velocity - (body_velocity * joint_axis) * joint_axis;
+    math::Vector3 air_drag = -std::abs(real_motor_velocity) * rotor_drag_coefficient_ * body_velocity_perpendicular;
+    // Apply air_drag to link.
+    link_->AddForce(air_drag);
+    // Moments
+    // Getting the parent link, such that the resulting torques can be applied to it.
+    physics::Link_V parent_links = link_->GetParentJointsLinks();
+    // The tansformation from the parent_link to the link_.
+    math::Pose pose_difference = link_->GetWorldCoGPose() - parent_links.at(0)->GetWorldCoGPose();
+    math::Vector3 drag_torque(0, 0, -turning_direction_ * force * moment_constant_);
+    // Transforming the drag torque into the parent frame to handle arbitrary rotor orientations.
+    math::Vector3 drag_torque_parent_frame = pose_difference.rot.RotateVector(drag_torque);
+    parent_links.at(0)->AddRelativeTorque(drag_torque_parent_frame);
+
+    math::Vector3 rolling_moment;
+    // - \omega * \mu_1 * V_A^{\perp}
+    rolling_moment = -std::abs(real_motor_velocity) * rolling_moment_coefficient_ * body_velocity_perpendicular;
+    parent_links.at(0)->AddTorque(rolling_moment);
   }
-  double real_motor_velocity = motor_rot_vel_ * rotor_velocity_slowdown_sim_;
-  double force = real_motor_velocity * real_motor_velocity * motor_constant_;
-
-  // scale down force linearly with forward speed
-  // XXX this has to be modelled better
-  math::Vector3 body_velocity = link_->GetWorldLinearVel();
-  double vel = body_velocity.GetLength();
-  double scalar = 1 - vel / 25.0; // at 50 m/s the rotor will not produce any force anymore
-  scalar = math::clamp(scalar, 0.0, 1.0);
-  // Apply a force to the link.
-  link_->AddRelativeForce(math::Vector3(0, 0, force * scalar));
-
-  // Forces from Philppe Martin's and Erwan Salaün's
-  // 2010 IEEE Conference on Robotics and Automation paper
-  // The True Role of Accelerometer Feedback in Quadrotor Control
-  // - \omega * \lambda_1 * V_A^{\perp}
-  math::Vector3 joint_axis = joint_->GetGlobalAxis(0);
-  //math::Vector3 body_velocity = link_->GetWorldLinearVel();
-  math::Vector3 body_velocity_perpendicular = body_velocity - (body_velocity * joint_axis) * joint_axis;
-  math::Vector3 air_drag = -std::abs(real_motor_velocity) * rotor_drag_coefficient_ * body_velocity_perpendicular;
-  // Apply air_drag to link.
-  link_->AddForce(air_drag);
-  // Moments
-  // Getting the parent link, such that the resulting torques can be applied to it.
-  physics::Link_V parent_links = link_->GetParentJointsLinks();
-  // The tansformation from the parent_link to the link_.
-  math::Pose pose_difference = link_->GetWorldCoGPose() - parent_links.at(0)->GetWorldCoGPose();
-  math::Vector3 drag_torque(0, 0, -turning_direction_ * force * moment_constant_);
-  // Transforming the drag torque into the parent frame to handle arbitrary rotor orientations.
-  math::Vector3 drag_torque_parent_frame = pose_difference.rot.RotateVector(drag_torque);
-  parent_links.at(0)->AddRelativeTorque(drag_torque_parent_frame);
-
-  math::Vector3 rolling_moment;
-  // - \omega * \mu_1 * V_A^{\perp}
-  rolling_moment = -std::abs(real_motor_velocity) * rolling_moment_coefficient_ * body_velocity_perpendicular;
-  parent_links.at(0)->AddTorque(rolling_moment);
+  
   // Apply the filter on the motor's velocity.
   double ref_motor_rot_vel;
   ref_motor_rot_vel = rotor_velocity_filter_->updateFilter(ref_motor_rot_vel_, sampling_time_);

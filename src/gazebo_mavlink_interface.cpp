@@ -49,8 +49,15 @@ void GazeboMavlinkInterface::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf
   node_handle_ = transport::NodePtr(new transport::Node());
   node_handle_->Init(namespace_);
 
-  getSdfParam<std::string>(_sdf, "motorSpeedCommandPubTopic", motor_velocity_reference_pub_topic_,
-                           motor_velocity_reference_pub_topic_);
+  getSdfParam<std::string>(
+    _sdf, "motorSpeedCommandPubTopic", motor_velocity_reference_pub_topic_,
+    motor_velocity_reference_pub_topic_);
+
+  getSdfParam<double>(
+    _sdf, "commandScaling", command_scaling_, command_scaling_);
+
+  getSdfParam<double>(
+    _sdf, "commandOffset", command_offset_, command_offset_);
 
   if (_sdf->HasElement("left_elevon_joint")) {
     left_elevon_joint_name_ = _sdf->GetElement("left_elevon_joint")->Get<std::string>();
@@ -177,7 +184,14 @@ void GazeboMavlinkInterface::OnUpdate(const common::UpdateInfo& /*_info*/) {
     // turning_velocities_msg->header.stamp.sec = now.sec;
     // turning_velocities_msg->header.stamp.nsec = now.nsec;
 
-    // gzerr << turning_velocities_msg.motor_speed(0) << "\n";
+    //gzerr << turning_velocities_msg.motor_speed(0) << "\n";
+    /*std::cout
+      << turning_velocities_msg.motor_speed(0) << ", "
+      << turning_velocities_msg.motor_speed(1) << ", "
+      << turning_velocities_msg.motor_speed(2) << ", "
+      << turning_velocities_msg.motor_speed(3) << ", "
+      << "\n";
+    */
     motor_velocity_reference_pub_->Publish(turning_velocities_msg);
   }
 
@@ -281,14 +295,16 @@ void GazeboMavlinkInterface::HilControlCallback(HilControlPtr &rmsg) {
     inputs.control[7] =(double)rmsg->aux4();
 
     // publish message
-    double scaling = 150;
-    double offset = 600;
 
-    mav_msgs::msgs::CommandMotorSpeed* turning_velocities_msg = new mav_msgs::msgs::CommandMotorSpeed;
+    mav_msgs::msgs::CommandMotorSpeed* turning_velocities_msg = 
+      new mav_msgs::msgs::CommandMotorSpeed;
 
     for (int i = 0; i < _rotor_count; i++) {
-      turning_velocities_msg->add_motor_speed(inputs.control[i] * scaling + offset);
+      turning_velocities_msg->add_motor_speed(
+        inputs.control[i] * command_scaling_ + command_offset_);
     }
+
+    //std::cout << "Setting input reference HIL\n";
 
     input_reference_.resize(turning_velocities_msg->motor_speed_size());
     for (int i = 0; i < turning_velocities_msg->motor_speed_size(); ++i) {
@@ -486,8 +502,6 @@ void GazeboMavlinkInterface::handle_message(mavlink_message_t *msg)
     inputs.control[7] =(double)controls.aux4;
 
     // publish message
-    double scaling = 340;
-    double offset = 500;
 
     // simple check to see if we are simulating fw or mc
     // we really need to get away from this HIL message
@@ -496,12 +510,13 @@ void GazeboMavlinkInterface::handle_message(mavlink_message_t *msg)
     bool is_fixed_wing = false;
 
     last_actuator_time_ = world_->GetSimTime();
-
+    
     input_reference_.resize(_rotor_count);
 
     // set rotor speeds for all systems
     for (int i = 0; i < _rotor_count; i++) {
-      input_reference_[i] = inputs.control[i] * scaling + offset;
+      input_reference_[i] = inputs.control[i] * command_scaling_ + command_offset_;
+      //std::cout << "IN" << i << ":" << inputs.control[i] << ":" << input_reference_[i] << "\n";
     }
 
     // 5th rotor: pusher/puller throttle for the standard vtol plane

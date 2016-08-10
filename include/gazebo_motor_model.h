@@ -68,6 +68,7 @@ static constexpr double kDefaulMaxRotVelocity = 838.0;
 static constexpr double kDefaultRotorDragCoefficient = 1.0e-4;
 static constexpr double kDefaultRollingMomentCoefficient = 1.0e-6;
 static constexpr double kDefaultRotorVelocitySlowdownSim = 10.0;
+static constexpr bool kDefaultApplyForce = true;
 
 class GazeboMotorModel : public MotorModel, public ModelPlugin {
  public:
@@ -88,7 +89,8 @@ class GazeboMotorModel : public MotorModel, public ModelPlugin {
         rotor_drag_coefficient_(kDefaultRotorDragCoefficient),
         rotor_velocity_slowdown_sim_(kDefaultRotorVelocitySlowdownSim),
         time_constant_down_(kDefaultTimeConstantDown),
-        time_constant_up_(kDefaultTimeConstantUp) {
+        time_constant_up_(kDefaultTimeConstantUp),
+        apply_force_(kDefaultApplyForce) {
   }
 
   virtual ~GazeboMotorModel();
@@ -121,6 +123,8 @@ class GazeboMotorModel : public MotorModel, public ModelPlugin {
   double rotor_velocity_slowdown_sim_;
   double time_constant_down_;
   double time_constant_up_;
+
+  bool apply_force_;
 
   transport::NodePtr node_handle_;
   transport::PublisherPtr motor_velocity_pub_;
