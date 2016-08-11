@@ -42,7 +42,7 @@ void GazeboUUVPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf) {
     _sdf, "commandSubTopic", command_sub_topic_, command_sub_topic_);
   
   command_sub_ = node_handle_->Subscribe<mav_msgs::msgs::CommandMotorSpeed>(
-    command_sub_topic_, &GazeboUUVPlugin::CommandCallback, this);
+    "~/" + _model->GetName() + command_sub_topic_, &GazeboUUVPlugin::CommandCallback, this);
 
   update_connection_ = event::Events::ConnectWorldUpdateBegin(
     boost::bind(&GazeboUUVPlugin::OnUpdate, this, _1));

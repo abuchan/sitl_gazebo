@@ -56,6 +56,9 @@ void GazeboMavlinkInterface::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf
   getSdfParam<double>(
     _sdf, "inputOffset", input_offset_, input_offset_);
 
+  getSdfParam<double>(
+    _sdf, "zeroPositionArmed", zero_position_armed_, zero_position_armed_);
+
   joints_.resize(n_out_max);
 
   if (_sdf->HasElement("control_channels")) {
@@ -484,33 +487,7 @@ void GazeboMavlinkInterface::handle_message(mavlink_message_t *msg)
   case MAVLINK_MSG_ID_HIL_CONTROLS:
     mavlink_hil_controls_t controls;
     mavlink_msg_hil_controls_decode(msg, &controls);
-/*<<<<<<< HEAD
-    inputs.control[0] =(double)controls.roll_ailerons;
-    inputs.control[1] =(double)controls.pitch_elevator;
-    inputs.control[2] =(double)controls.yaw_rudder;
-    inputs.control[3] =(double)controls.throttle;
-    inputs.control[4] =(double)controls.aux1;
-    inputs.control[5] =(double)controls.aux2;
-    inputs.control[6] =(double)controls.aux3;
-    inputs.control[7] =(double)controls.aux4;
-
-    // publish message
-
-    // simple check to see if we are simulating fw or mc
-    // we really need to get away from this HIL message
-    //bool is_fixed_wing = inputs.control[0] < 10.0f;
-    // TODO XXX: this makes SITL work again
-    bool is_fixed_wing = false;
-
-    last_actuator_time_ = world_->GetSimTime();
     
-    input_reference_.resize(_rotor_count);
-
-    // set rotor speeds for all systems
-    for (int i = 0; i < _rotor_count; i++) {
-      input_reference_[i] = inputs.control[i] * command_scaling_ + command_offset_;
-      //std::cout << "IN" << i << ":" << inputs.control[i] << ":" << input_reference_[i] << "\n";
-=======*/
     bool armed = false;
 
     if ((controls.mode & MAV_MODE_FLAG_SAFETY_ARMED) > 0) {
@@ -561,7 +538,7 @@ void GazeboMavlinkInterface::handle_message(mavlink_message_t *msg)
       //input_scaling[i] = 550.0;
       input_scaling[i] = input_scaling_;
       zero_position_disarmed[i] = 0.0;
-      zero_position_armed[i] = (is_vtol) ? 0.0 : 100.0;
+      zero_position_armed[i] = (is_vtol) ? 0.0 : zero_position_armed_;
     }
 
     if (is_vtol) {
@@ -596,7 +573,7 @@ void GazeboMavlinkInterface::handle_message(mavlink_message_t *msg)
       } else {
         input_reference_[i] = zero_position_disarmed[i];
       }
-//>>>>>>> 0b633ac51b1392fd67096e2201e57dfc8a0f5a50
+      //std::cout << "Ref " << i << ":" << inputs.control[input_index[i]] << "," << input_reference_[i] << "\n";
     }
 
     // set joint positions

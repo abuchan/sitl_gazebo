@@ -78,6 +78,7 @@ static const std::string kDefaultMavlinkHilGpsPubTopic = "/HilGps";
 // These default values are for the IRIS quadrotor speed controllers
 static const double kDefaultInputScaling = 550.0;
 static const double kDefaultInputOffset = 1.0;
+static const double kDefaultZeroPositionArmed = 100.0;
 
 static bool use_mavlink_udp = true;
 
@@ -111,6 +112,7 @@ class GazeboMavlinkInterface : public ModelPlugin {
         lon_rad(0.0),
         input_scaling_(kDefaultInputScaling),
         input_offset_(kDefaultInputOffset),
+        zero_position_armed_(kDefaultZeroPositionArmed),
         mavlink_udp_port_(kDefaultMavlinkUdpPort)
         {}
   ~GazeboMavlinkInterface();
@@ -168,6 +170,7 @@ class GazeboMavlinkInterface : public ModelPlugin {
 
   double input_scaling_;
   double input_offset_;
+  double zero_position_armed_;
   double input_offset[n_out_max];
   double input_scaling[n_out_max];
   double zero_position_disarmed[n_out_max];
